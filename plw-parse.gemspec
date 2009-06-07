@@ -1,6 +1,6 @@
 spec = Gem::Specification.new do |s| 
   s.name = "PLW Parse"
-  s.version = "0.1.1"
+  s.version = "0.1.2"
   s.author = "JP Hastings-Spital"
   s.email = "contact@projects.kedakai.co.uk"
   s.homepage = "http://wiki.github.com/jphastings/plw-parse"

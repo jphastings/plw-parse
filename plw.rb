@@ -1,7 +1,7 @@
 # A hacked up class for parsing the PLW data format from PicoTech (for their Oscilloscope data). Its not meant for speed but (constructive :P) criticism and ideas are welcome!
 class PLW
   attr_reader :signature,:version,:params,:PLS
-  attr_reader :sample_num,:no_samples,:max_samples,:interval,:trigger_sample,:triggered,:first_sample,:sample_length,:setting_byte,:start_date,:start_time,:min_time,:max_time,:notes,:current_time
+  attr_reader :sample_num,:no_samples,:max_samples,:interval,:trigger_sample,:triggered,:first_sample,:sample_length,:setting_byte,:start_date,:start_time,:min_time,:max_time,:notes,:current_time,:no_params
   attr_accessor :current_sample
   
   # Will take a filename or a file handle (eg. <tt>"filename.plw"</tt> or <tt>open("filename.plw")</tt>)
@@ -62,19 +62,32 @@ class PLW
   # * :time : The time offset of this sample, in seconds
   # * :data : The data for each channel as a hash
   def getSamples(n=1)
-    if (@current_sample + n > @no_samples)
-      n = @no_samples - @current_sample
-      if n < 1
-        return false
+    if n == :all
+      current_sample = 0
+      n = @no_samples - 1
+    else
+      if (@current_sample + n > @no_samples)
+        n = @no_samples - @current_sample
+        if n < 1
+          return false
+        end
       end
     end
     
-    Hash[*(@current_sample+1).upto(@current_sample += n).collect{ |sample_num| [sample_num,{:time => getuint32*@interval_units,:data => @no_params.times.collect { |param_index| getFloat() } }]}.flatten]
+    ((@current_sample + 1)..(@current_sample += n)).to_a.collect{ |sample_num|
+      {
+        :time => getuint32*@interval_units,
+        :data => (1..@no_params).to_a.collect { |param_index| getFloat() }
+      }
+      }.flatten
   end
-  
+    
   # A convenience method that just gives the next sample only
   def getSample
-    getSamples(1).to_a[0][1]
+    if not (sample = getSamples(1))
+      return false
+    end
+    sample[0]
   end
   
   private
@@ -82,7 +95,7 @@ class PLW
   def getbytes(numbytes)
     data = ""
     numbytes.times do |time|
-      data<<@file.getbyte
+      data<<@file.readpartial(1)
     end
     data
   end
@@ -110,7 +123,7 @@ class PLW
     end
     getbytes(2*(250 - @no_params)) # The remaining params aren't used
     @sample_num  = getuint32() # Same as @no_samples unless wraparound occured
-    @no_samples = getuint32() + 415 # Why?! Its not reporting the right length for some reason...
+    @no_samples = getuint32()
     @max_samples = getuint32()
     @interval = getuint32()
     case getuint16() # next 16 bits are the 'interval unit'
